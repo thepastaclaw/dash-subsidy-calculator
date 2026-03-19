@@ -37,6 +37,18 @@ Each period retains 13/14 of the previous subsidy. Post-v20 allocation:
 | Genesis block | Jan 18, 2014 |
 | Avg block time | 2.6 minutes |
 
+## Testing
+
+Run the tests via Node.js:
+
+```bash
+node test.js
+```
+
+Or open `test.html` in a browser for visual pass/fail output.
+
+Tests cover period boundary values, block-to-period mapping, post-v20 reward splits, chain validation against mainnet data, edge cases, integer precision, and a regression check for the `nSubsidy -= trunc(nSubsidy/14)` vs `trunc(nSubsidy * 13/14)` divergence.
+
 ## Deployment
 
 Pure HTML/CSS/JS — no build step required. Just serve `index.html`:
