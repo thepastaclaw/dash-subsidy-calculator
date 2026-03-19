@@ -483,16 +483,9 @@
 
         function getBlockSubsidy(blockHeight) {
             if (blockHeight < 1) return null;
-            const nPrevHeight = blockHeight - 1;
-            let nSubsidy = SUBSIDY_BASE_SATS;
+            const period = Math.floor((blockHeight - 1) / HALVING_INTERVAL);
+            const nSubsidy = getSubsidyForPeriod(period);
 
-            for (let i = HALVING_INTERVAL; i <= nPrevHeight; i += HALVING_INTERVAL) {
-                nSubsidy -= Math.trunc(nSubsidy / 14);
-            }
-
-            const period = Math.floor(nPrevHeight / HALVING_INTERVAL);
-
-            // Post-v20 allocation
             const treasury = Math.trunc(nSubsidy / 5);
             const blockReward = nSubsidy - treasury;
             const masternode = Math.trunc(blockReward * 3 / 4);
@@ -570,15 +563,13 @@
             const nextReductionBlock = (info.period + 1) * HALVING_INTERVAL;
             const nextDate = blockToDate(nextReductionBlock);
 
-            // Estimate current circulating supply
             let supply = 0;
             for (const p of schedule) {
                 if (currentBlock > p.endBlock) {
                     supply = p.cumulative;
                 } else {
-                    const blocksInto = currentBlock - p.startBlock;
-                    supply += Math.max(0, blocksInto) * p.subsidy;
-                    supply += schedule.slice(0, p.period).reduce((s, pp) => s + pp.periodEmission, 0);
+                    const blocksInto = Math.max(0, currentBlock - p.startBlock);
+                    supply += blocksInto * p.subsidy;
                     break;
                 }
             }
@@ -679,10 +670,7 @@
             // Use up to ~100 periods for chart data
             const chartData = schedule.slice(0, 100);
 
-            const labels = chartData.map(p => {
-                const year = p.startDate.getFullYear();
-                return year;
-            });
+            const labels = chartData.map(p => p.startDate.getFullYear());
             const subsidyData = chartData.map(p => p.subsidy / COIN);
             const cumulativeData = chartData.map(p => Math.round(p.cumulative / COIN));
 
