@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dash Block Subsidy Calculator</title>
+    <meta name="description" content="Calculate Dash block subsidies, explore the emission schedule, and visualize the supply curve. Based on Dash Core's exact integer arithmetic.">
+    <meta property="og:title" content="Dash Block Subsidy Calculator">
+    <meta property="og:description" content="Explore Dash's block subsidy schedule, reward allocation, and emission curve.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --card-border: #374151;
+            --text: #e5e7eb;
+            --text-muted: #9ca3af;
+            --accent: #008de4;
+            --accent-hover: #00a6ff;
+            --green: #34d399;
+            --yellow: #fbbf24;
+            --red: #f87171;
+            --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--card-border);
+            padding: 1.5rem 0;
+        }
+        header .container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .logo {
+            width: 40px; height: 40px;
+            fill: var(--accent);
+            flex-shrink: 0;
+        }
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        header p {
+            width: 100%;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Main layout */
+        main { padding: 2rem 0; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .full-width { grid-column: 1 / -1; }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .card h2 {
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .card h2 .icon { font-size: 1.2rem; }
+
+        /* Network info */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+        .info-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        .info-item .value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            font-family: var(--font-mono);
+        }
+        .info-item .value.accent { color: var(--accent); }
+
+        /* Calculator */
+        .calc-input {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .calc-input input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            font-family: var(--font-mono);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .calc-input input:focus { border-color: var(--accent); }
+        .calc-input input::placeholder { color: var(--text-muted); }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover { background: var(--accent-hover); }
+
+        /* Results */
+        .result { display: none; }
+        .result.visible { display: block; }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .result-header .subsidy {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+            font-family: var(--font-mono);
+        }
+        .result-header .period-badge {
+            background: var(--accent);
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .reward-bar {
+            display: flex;
+            height: 32px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .reward-bar div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #fff;
+            transition: width 0.3s;
+        }
+        .bar-miner { background: var(--green); }
+        .bar-masternode { background: var(--accent); }
+        .bar-treasury { background: var(--yellow); color: #000 !important; }
+
+        .reward-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+        }
+        .reward-item {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        .reward-item .label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .reward-item .amount {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+        .reward-item .pct {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .result-meta {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .result-meta span { color: var(--text); }
+
+        /* Schedule table */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 0.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            border-bottom: 2px solid var(--card-border);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--card-border);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        tr.current-period {
+            background: rgba(0, 141, 228, 0.1);
+        }
+        tr.current-period td:first-child {
+            position: relative;
+        }
+        tr.current-period td:first-child::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--accent);
+        }
+
+        /* Chart */
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+
+        /* Explanation */
+        .explanation {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+        .explanation code {
+            background: var(--bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+        .explanation h3 {
+            color: var(--text);
+            font-size: 1rem;
+            margin: 1rem 0 0.5rem;
+        }
+        .explanation h3:first-child { margin-top: 0; }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--card-border);
+            padding: 1.5rem 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .reward-breakdown { grid-template-columns: 1fr; }
+            .chart-container { height: 300px; }
+            header h1 { font-size: 1.25rem; }
+            .result-header .subsidy { font-size: 1.35rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <path d="M130 30H75L65 75h55c25 0 40 15 40 40s-15 40-40 40H60l-10 45h55c50 0 85-35 85-85S180 30 130 30z"/>
+                <path d="M55 75L25 170h55l10-45H60l10-50z" opacity="0.7"/>
+            </svg>
+            <h1>Dash Block Subsidy Calculator</h1>
+            <p>Explore Dash's emission schedule, block reward structure, and supply curve</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="grid">
+            <!-- Network Info -->
+            <section class="card full-width" id="network-info">
+                <h2><span class="icon">&#9672;</span> Current Network Estimate</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Est. Block Height</label>
+                        <div class="value accent" id="net-height">—</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Current Subsidy</label>
+                        <div class="value" id="net-subsidy">—</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Reduction Period</label>
+                        <div class="value" id="net-period">—</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Next Reduction</label>
+                        <div class="value" id="net-next">—</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Est. Circulating Supply</label>
+                        <div class="value" id="net-supply">—</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calculator -->
+            <section class="card">
+                <h2><span class="icon">&#9881;</span> Block Subsidy Calculator</h2>
+                <div class="calc-input">
+                    <input type="number" id="block-input" placeholder="Enter block height" min="1" step="1">
+                    <button class="btn" id="calc-btn">Calculate</button>
+                </div>
+                <div class="result" id="calc-result">
+                    <div class="result-header">
+                        <span class="subsidy" id="res-subsidy"></span>
+                        <span class="period-badge" id="res-period"></span>
+                    </div>
+                    <div class="reward-bar" id="res-bar">
+                        <div class="bar-miner" id="bar-miner">20%</div>
+                        <div class="bar-masternode" id="bar-mn">60%</div>
+                        <div class="bar-treasury" id="bar-treasury">20%</div>
+                    </div>
+                    <div class="reward-breakdown">
+                        <div class="reward-item">
+                            <div class="label">Miners</div>
+                            <div class="amount" id="res-miner" style="color:var(--green)"></div>
+                            <div class="pct">20% of total</div>
+                        </div>
+                        <div class="reward-item">
+                            <div class="label">Masternodes</div>
+                            <div class="amount" id="res-mn" style="color:var(--accent)"></div>
+                            <div class="pct">60% of total</div>
+                        </div>
+                        <div class="reward-item">
+                            <div class="label">Treasury</div>
+                            <div class="amount" id="res-treasury" style="color:var(--yellow)"></div>
+                            <div class="pct">20% of total</div>
+                        </div>
+                    </div>
+                    <div class="result-meta">
+                        <div>Approximate date: <span id="res-date"></span></div>
+                        <div>Block range for this period: <span id="res-range"></span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- How it works -->
+            <section class="card">
+                <h2><span class="icon">&#9432;</span> How It Works</h2>
+                <div class="explanation">
+                    <h3>Block Subsidy</h3>
+                    <p>Dash's block subsidy starts at <code>5 DASH</code> and decreases by <code>1/14</code> (~7.14%) every <code>210,240</code> blocks (~1 year). This creates a smooth, gradual emission curve.</p>
+
+                    <h3>The Math</h3>
+                    <p>Starting from 500,000,000 satoshis (5 DASH), for each reduction period the subsidy is reduced: <code>nSubsidy -= nSubsidy / 14</code> using integer division. This means each period retains exactly <code>13/14</code> of the previous subsidy.</p>
+
+                    <h3>Reward Allocation</h3>
+                    <p>Since the v20 hard fork, the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury for governance proposals.</p>
+
+                    <h3>Masternodes</h3>
+                    <p>Of the 60% masternode allocation, 62.5% is paid on the Core chain and 37.5% goes to the Platform credit pool (evonodes).</p>
+                </div>
+            </section>
+
+            <!-- Emission Chart -->
+            <section class="card full-width">
+                <h2><span class="icon">&#9670;</span> Emission Curve</h2>
+                <div class="chart-container">
+                    <canvas id="emission-chart"></canvas>
+                </div>
+            </section>
+
+            <!-- Subsidy Schedule -->
+            <section class="card full-width">
+                <h2><span class="icon">&#9776;</span> Subsidy Schedule</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Block Range</th>
+                                <th>~Date Range</th>
+                                <th>Subsidy (DASH)</th>
+                                <th>Subsidy (sat)</th>
+                                <th>Period Emission</th>
+                                <th>Cumulative Supply</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>
+                Data derived from <a href="https://github.com/dashpay/dash/blob/master/src/validation.cpp" target="_blank" rel="noopener">Dash Core source code</a> using exact integer arithmetic.
+                Date estimates assume 2.6-minute average block times from genesis (Jan 18, 2014).
+            </p>
+            <p style="margin-top:0.5rem">
+                <a href="https://docs.dash.org" target="_blank" rel="noopener">Dash Documentation</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://github.com/dashpay/dash" target="_blank" rel="noopener">Dash Core on GitHub</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // === Constants ===
+        const COIN = 100_000_000;
+        const SUBSIDY_BASE_SATS = 5 * COIN; // 500000000
+        const HALVING_INTERVAL = 210240;
+        const GENESIS_TIMESTAMP = 1390095618; // Jan 18, 2014 19:40:18 CST (Jan 19, 2014 01:40:18 UTC)
+        const AVG_BLOCK_SECONDS = 156; // 2.6 minutes
+
+        // === Core Math (integer arithmetic matching Dash Core) ===
+        function getSubsidyForPeriod(period) {
+            let nSubsidy = SUBSIDY_BASE_SATS;
+            for (let i = 0; i < period; i++) {
+                nSubsidy -= Math.trunc(nSubsidy / 14);
+            }
+            return nSubsidy;
+        }
+
+        function getBlockSubsidy(blockHeight) {
+            if (blockHeight < 1) return null;
+            const nPrevHeight = blockHeight - 1;
+            let nSubsidy = SUBSIDY_BASE_SATS;
+
+            for (let i = HALVING_INTERVAL; i <= nPrevHeight; i += HALVING_INTERVAL) {
+                nSubsidy -= Math.trunc(nSubsidy / 14);
+            }
+
+            const period = Math.floor(nPrevHeight / HALVING_INTERVAL);
+
+            // Post-v20 allocation
+            const treasury = Math.trunc(nSubsidy / 5);
+            const blockReward = nSubsidy - treasury;
+            const masternode = Math.trunc(blockReward * 3 / 4);
+            const miner = blockReward - masternode;
+
+            return { total: nSubsidy, treasury, masternode, miner, period };
+        }
+
+        // === Helpers ===
+        function formatDash(satoshis) {
+            const dash = satoshis / COIN;
+            return dash.toFixed(8).replace(/0+$/, '').replace(/\.$/, '.0');
+        }
+
+        function formatNumber(n) {
+            return n.toLocaleString('en-US');
+        }
+
+        function blockToDate(height) {
+            return new Date((GENESIS_TIMESTAMP + height * AVG_BLOCK_SECONDS) * 1000);
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        }
+
+        function estimateCurrentBlock() {
+            const elapsed = Math.floor(Date.now() / 1000) - GENESIS_TIMESTAMP;
+            return Math.floor(elapsed / AVG_BLOCK_SECONDS);
+        }
+
+        // === Generate full schedule data ===
+        function generateSchedule() {
+            const periods = [];
+            let cumulative = 0;
+            let period = 0;
+
+            while (true) {
+                const subsidy = getSubsidyForPeriod(period);
+                if (subsidy <= 0) break;
+
+                const startBlock = period === 0 ? 1 : period * HALVING_INTERVAL;
+                const endBlock = (period + 1) * HALVING_INTERVAL - 1;
+
+                // For period 0, genesis block (0) is special; count blocks 1 through 210239
+                const blocksInPeriod = period === 0 ? HALVING_INTERVAL - 1 : HALVING_INTERVAL;
+                const periodEmission = blocksInPeriod * subsidy;
+                cumulative += periodEmission;
+
+                periods.push({
+                    period,
+                    startBlock,
+                    endBlock,
+                    subsidy,
+                    blocksInPeriod,
+                    periodEmission,
+                    cumulative,
+                    startDate: blockToDate(startBlock),
+                    endDate: blockToDate(endBlock),
+                });
+
+                period++;
+                if (period > 500) break; // safety
+            }
+
+            return periods;
+        }
+
+        // === Render network info ===
+        function renderNetworkInfo(schedule) {
+            const currentBlock = estimateCurrentBlock();
+            const info = getBlockSubsidy(currentBlock);
+            if (!info) return;
+
+            const nextReductionBlock = (info.period + 1) * HALVING_INTERVAL;
+            const nextDate = blockToDate(nextReductionBlock);
+
+            // Estimate current circulating supply
+            let supply = 0;
+            for (const p of schedule) {
+                if (currentBlock > p.endBlock) {
+                    supply = p.cumulative;
+                } else {
+                    const blocksInto = currentBlock - p.startBlock;
+                    supply += Math.max(0, blocksInto) * p.subsidy;
+                    supply += schedule.slice(0, p.period).reduce((s, pp) => s + pp.periodEmission, 0);
+                    break;
+                }
+            }
+
+            document.getElementById('net-height').textContent = formatNumber(currentBlock);
+            document.getElementById('net-subsidy').textContent = formatDash(info.total) + ' DASH';
+            document.getElementById('net-period').textContent = 'Period ' + info.period;
+            document.getElementById('net-next').textContent = 'Block ' + formatNumber(nextReductionBlock) + ' (~' + formatDate(nextDate) + ')';
+            document.getElementById('net-supply').textContent = formatNumber(Math.round(supply / COIN)) + ' DASH';
+        }
+
+        // === Render calculator ===
+        function renderCalculator() {
+            const input = document.getElementById('block-input');
+            const resultEl = document.getElementById('calc-result');
+
+            function calculate() {
+                const height = parseInt(input.value, 10);
+                if (!height || height < 1) {
+                    resultEl.classList.remove('visible');
+                    return;
+                }
+
+                const info = getBlockSubsidy(height);
+                if (!info) return;
+
+                document.getElementById('res-subsidy').textContent = formatDash(info.total) + ' DASH';
+                document.getElementById('res-period').textContent = 'Period ' + info.period;
+                document.getElementById('res-miner').textContent = formatDash(info.miner);
+                document.getElementById('res-mn').textContent = formatDash(info.masternode);
+                document.getElementById('res-treasury').textContent = formatDash(info.treasury);
+
+                const date = blockToDate(height);
+                document.getElementById('res-date').textContent = date.toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                });
+
+                const rangeStart = info.period === 0 ? 1 : info.period * HALVING_INTERVAL;
+                const rangeEnd = (info.period + 1) * HALVING_INTERVAL - 1;
+                document.getElementById('res-range').textContent =
+                    formatNumber(rangeStart) + ' – ' + formatNumber(rangeEnd);
+
+                // Reward bar widths
+                const minerPct = (info.miner / info.total * 100).toFixed(1);
+                const mnPct = (info.masternode / info.total * 100).toFixed(1);
+                const treasuryPct = (info.treasury / info.total * 100).toFixed(1);
+                document.getElementById('bar-miner').style.width = minerPct + '%';
+                document.getElementById('bar-miner').textContent = minerPct + '%';
+                document.getElementById('bar-mn').style.width = mnPct + '%';
+                document.getElementById('bar-mn').textContent = mnPct + '%';
+                document.getElementById('bar-treasury').style.width = treasuryPct + '%';
+                document.getElementById('bar-treasury').textContent = treasuryPct + '%';
+
+                resultEl.classList.add('visible');
+            }
+
+            document.getElementById('calc-btn').addEventListener('click', calculate);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') calculate();
+            });
+
+            // Pre-fill with current estimated block
+            input.value = estimateCurrentBlock();
+            calculate();
+        }
+
+        // === Render schedule table ===
+        function renderScheduleTable(schedule) {
+            const tbody = document.getElementById('schedule-body');
+            const currentBlock = estimateCurrentBlock();
+            const currentPeriod = Math.floor((currentBlock - 1) / HALVING_INTERVAL);
+
+            // Show first 50 periods (covers many decades) plus any remaining until subsidy is tiny
+            const displayPeriods = schedule.slice(0, Math.max(50, schedule.findIndex(p => p.subsidy < 100) + 1));
+
+            const fragment = document.createDocumentFragment();
+            for (const p of displayPeriods) {
+                const tr = document.createElement('tr');
+                if (p.period === currentPeriod) tr.className = 'current-period';
+
+                tr.innerHTML =
+                    '<td>' + p.period + '</td>' +
+                    '<td>' + formatNumber(p.startBlock) + ' – ' + formatNumber(p.endBlock) + '</td>' +
+                    '<td>' + formatDate(p.startDate) + ' – ' + formatDate(p.endDate) + '</td>' +
+                    '<td>' + formatDash(p.subsidy) + '</td>' +
+                    '<td>' + formatNumber(p.subsidy) + '</td>' +
+                    '<td>' + formatNumber(Math.round(p.periodEmission / COIN)) + ' DASH</td>' +
+                    '<td>' + formatNumber(Math.round(p.cumulative / COIN)) + ' DASH</td>';
+                fragment.appendChild(tr);
+            }
+            tbody.appendChild(fragment);
+        }
+
+        // === Render emission chart ===
+        function renderChart(schedule) {
+            const ctx = document.getElementById('emission-chart').getContext('2d');
+
+            // Use up to ~100 periods for chart data
+            const chartData = schedule.slice(0, 100);
+
+            const labels = chartData.map(p => {
+                const year = p.startDate.getFullYear();
+                return year;
+            });
+            const subsidyData = chartData.map(p => p.subsidy / COIN);
+            const cumulativeData = chartData.map(p => Math.round(p.cumulative / COIN));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Block Subsidy (DASH)',
+                            data: subsidyData,
+                            borderColor: '#008de4',
+                            backgroundColor: 'rgba(0, 141, 228, 0.08)',
+                            borderWidth: 2,
+                            fill: true,
+                            stepped: 'before',
+                            yAxisID: 'y',
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                        },
+                        {
+                            label: 'Cumulative Supply (DASH)',
+                            data: cumulativeData,
+                            borderColor: '#34d399',
+                            backgroundColor: 'rgba(52, 211, 153, 0.08)',
+                            borderWidth: 2,
+                            fill: true,
+                            yAxisID: 'y2',
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#9ca3af', font: { size: 12 } },
+                        },
+                        tooltip: {
+                            backgroundColor: '#1f2937',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            titleColor: '#e5e7eb',
+                            bodyColor: '#e5e7eb',
+                            callbacks: {
+                                title: function(items) {
+                                    const idx = items[0].dataIndex;
+                                    const p = chartData[idx];
+                                    return 'Period ' + p.period + ' (~' + formatDate(p.startDate) + ')';
+                                },
+                                label: function(item) {
+                                    if (item.datasetIndex === 0) {
+                                        return 'Subsidy: ' + item.raw.toFixed(8) + ' DASH';
+                                    }
+                                    return 'Total Supply: ' + formatNumber(item.raw) + ' DASH';
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Year', color: '#9ca3af' },
+                            ticks: { color: '#6b7280', maxTicksLimit: 20 },
+                            grid: { color: 'rgba(55, 65, 81, 0.5)' },
+                        },
+                        y: {
+                            position: 'left',
+                            title: { display: true, text: 'Block Subsidy (DASH)', color: '#008de4' },
+                            ticks: { color: '#008de4' },
+                            grid: { color: 'rgba(55, 65, 81, 0.3)' },
+                        },
+                        y2: {
+                            position: 'right',
+                            title: { display: true, text: 'Cumulative Supply (DASH)', color: '#34d399' },
+                            ticks: {
+                                color: '#34d399',
+                                callback: function(val) {
+                                    return (val / 1_000_000).toFixed(1) + 'M';
+                                },
+                            },
+                            grid: { drawOnChartArea: false },
+                        },
+                    },
+                },
+            });
+        }
+
+        // === Init ===
+        const schedule = generateSchedule();
+        renderNetworkInfo(schedule);
+        renderCalculator();
+        renderScheduleTable(schedule);
+        renderChart(schedule);
+    })();
+    </script>
+</body>
+</html>
