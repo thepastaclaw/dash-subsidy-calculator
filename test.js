@@ -46,13 +46,7 @@ function assert(condition, name, detail) {
 }
 
 function assertEqual(actual, expected, name) {
-    if (actual === expected) {
-        passed++;
-        results.push({ pass: true, name });
-    } else {
-        failed++;
-        results.push({ pass: false, name, detail: `expected ${expected}, got ${actual}` });
-    }
+    assert(actual === expected, name, `expected ${expected}, got ${actual}`);
 }
 
 // === Tests ===
