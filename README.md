@@ -2,7 +2,7 @@
 
 A single-page static site that calculates Dash block subsidies, displays the full emission schedule, and visualizes the supply curve.
 
-**[View Live Site](https://dashpay.github.io/dash-subsidy-calculator/)**
+**[View Live Site](https://thepastaclaw.github.io/dash-subsidy-calculator/)**
 
 ## Features
 
