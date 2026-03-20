@@ -162,7 +162,6 @@ function runTests() {
     // Early Masternode Era: Block 200000 — MN=35% of blockReward, no treasury
     const b200k = getBlockSubsidy(200000);
     assertEqual(b200k.treasury, 0, 'Block 200000: no treasury');
-    const expected200kMN = Math.trunc(500000000 / 5) + Math.trunc(500000000 / 20) * 2 + Math.trunc(500000000 / 20);
     // 20% + 5% + 5% + 5% = 35%
     const mn200k = Math.trunc(500000000 / 5) + Math.trunc(500000000 / 20) + Math.trunc(500000000 / 20) + Math.trunc(500000000 / 20);
     assertEqual(b200k.masternode, mn200k, 'Block 200000: MN = 35% of blockReward');
@@ -188,6 +187,29 @@ function runTests() {
         b400k.treasury + b400k.masternode + b400k.miner, b400k.total,
         'Block 400000: reward components sum to total'
     );
+
+    // BRR Transition: Block 1500000 — treasury=10%, MN interpolated between 50-60%
+    const b1500k = getBlockSubsidy(1500000);
+    assertEqual(b1500k.treasury, Math.trunc(b1500k.total / 10), 'Block 1500000: treasury = 10%');
+    const brrProgress = (1500000 - 1374912) / (1987776 - 1374912);
+    const expectedMnPct = 0.50 + brrProgress * 0.10;
+    assertEqual(b1500k.masternode, Math.trunc(b1500k.total * expectedMnPct), 'Block 1500000: MN interpolated in BRR range');
+    assertEqual(
+        b1500k.treasury + b1500k.masternode + b1500k.miner, b1500k.total,
+        'Block 1500000: reward components sum to total'
+    );
+
+    // Era boundary: block 100000 is pre-MN, 100001 has MN payments
+    const bBoundaryMN = getBlockSubsidy(100000);
+    assertEqual(bBoundaryMN.masternode, 0, 'Block 100000: no masternode (boundary)');
+    const bBoundaryMN2 = getBlockSubsidy(100001);
+    assert(bBoundaryMN2.masternode > 0, 'Block 100001: masternode payments begin');
+
+    // Era boundary: block 328008 has no treasury, 328009 has treasury
+    const bBoundaryT = getBlockSubsidy(328008);
+    assertEqual(bBoundaryT.treasury, 0, 'Block 328008: no treasury (boundary)');
+    const bBoundaryT2 = getBlockSubsidy(328009);
+    assert(bBoundaryT2.treasury > 0, 'Block 328009: treasury begins');
 
     // v20 Era: Block 2000000 — treasury=20%, MN=60% of subsidy
     const b2m = getBlockSubsidy(2000000);
