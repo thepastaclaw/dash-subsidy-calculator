@@ -367,8 +367,12 @@
                 <div class="result" id="calc-result">
                     <div class="result-header">
                         <span class="subsidy" id="res-subsidy"></span>
-                        <span class="period-badge" id="res-period"></span>
+                        <div>
+                            <span class="period-badge" id="res-period"></span>
+                            <span class="period-badge" id="res-era" style="background:var(--card-border);margin-left:0.25rem"></span>
+                        </div>
                     </div>
+                    <div id="res-warning" style="font-size:0.8rem;color:var(--yellow);margin-bottom:0.75rem;display:none"></div>
                     <div class="reward-bar" id="res-bar">
                         <div class="bar-miner" id="bar-miner">20%</div>
                         <div class="bar-masternode" id="bar-mn">60%</div>
@@ -378,17 +382,17 @@
                         <div class="reward-item">
                             <div class="label">Miners</div>
                             <div class="amount" id="res-miner" style="color:var(--green)"></div>
-                            <div class="pct">20% of total</div>
+                            <div class="pct" id="res-miner-pct">20% of total</div>
                         </div>
                         <div class="reward-item">
                             <div class="label">Masternodes</div>
                             <div class="amount" id="res-mn" style="color:var(--accent)"></div>
-                            <div class="pct">60% of total</div>
+                            <div class="pct" id="res-mn-pct">60% of total</div>
                         </div>
                         <div class="reward-item">
                             <div class="label">Treasury</div>
                             <div class="amount" id="res-treasury" style="color:var(--yellow)"></div>
-                            <div class="pct">20% of total</div>
+                            <div class="pct" id="res-treasury-pct">20% of total</div>
                         </div>
                     </div>
                     <div class="result-meta">
@@ -409,7 +413,7 @@
                     <p>Starting from 500,000,000 satoshis (5 DASH), for each reduction period the subsidy is reduced: <code>nSubsidy -= nSubsidy / 14</code> using integer division. This means each period retains exactly <code>13/14</code> of the previous subsidy.</p>
 
                     <h3>Reward Allocation</h3>
-                    <p>Since the v20 hard fork, the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury for governance proposals.</p>
+                    <p>Since the v20 hard fork (block 1,987,776), the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury. This allocation evolved over time — early blocks had no masternode payments, and the treasury was introduced at block 328,009 at 10%. The calculator shows the historically accurate split for each block height.</p>
 
                     <h3>Masternodes</h3>
                     <p>Of the 60% masternode allocation, 62.5% is paid on the Core chain and 37.5% goes to the Platform credit pool (evonodes).</p>
@@ -486,12 +490,60 @@
             const period = Math.floor((blockHeight - 1) / HALVING_INTERVAL);
             const nSubsidy = getSubsidyForPeriod(period);
 
-            const treasury = Math.trunc(nSubsidy / 5);
+            // Treasury (superblock budget)
+            let treasury = 0;
+            const isV20 = blockHeight > 1987776;
+            if (blockHeight > 328008) {
+                treasury = Math.trunc(nSubsidy / (isV20 ? 5 : 10));
+            }
+
             const blockReward = nSubsidy - treasury;
-            const masternode = Math.trunc(blockReward * 3 / 4);
+
+            // Masternode payment
+            let masternode = 0;
+            if (blockHeight > 1987776) {
+                // v20: MN = 75% of blockReward
+                masternode = Math.trunc(blockReward * 3 / 4);
+            } else if (blockHeight > 1374912) {
+                // BRR transitional: linear interpolation from 50% to 60%
+                const brrProgress = Math.min(1, (blockHeight - 1374912) / (1987776 - 1374912));
+                const mnPctOfSubsidy = 0.50 + brrProgress * 0.10;
+                masternode = Math.trunc(nSubsidy * mnPctOfSubsidy);
+                masternode = Math.min(masternode, blockReward);
+            } else if (blockHeight > 100000) {
+                // Pre-BRR masternode payments — calculated from blockReward
+                let ret = Math.trunc(blockReward / 5); // 20%
+                if (blockHeight > 158000) ret += Math.trunc(blockReward / 20); // 25%
+                if (blockHeight > 175280) ret += Math.trunc(blockReward / 20); // 30%
+                if (blockHeight > 192560) ret += Math.trunc(blockReward / 20); // 35%
+                if (blockHeight > 209840) ret += Math.trunc(blockReward / 40); // 37.5%
+                if (blockHeight > 227120) ret += Math.trunc(blockReward / 40); // 40%
+                if (blockHeight > 244400) ret += Math.trunc(blockReward / 40); // 42.5%
+                if (blockHeight > 261680) ret += Math.trunc(blockReward / 40); // 45%
+                if (blockHeight > 278960) ret += Math.trunc(blockReward / 40); // 47.5%
+                if (blockHeight > 313520) ret += Math.trunc(blockReward / 40); // 50%
+                masternode = ret;
+            }
+            // else: blocks 1-100000, no masternode payments
+
             const miner = blockReward - masternode;
 
             return { total: nSubsidy, treasury, masternode, miner, period };
+        }
+
+        function getEraName(blockHeight) {
+            if (blockHeight <= 100000) return 'Pre-Masternode Era';
+            if (blockHeight <= 328008) return 'Early Masternode Era (no treasury)';
+            if (blockHeight <= 1374911) return 'Budget Era (10% treasury)';
+            if (blockHeight <= 1987775) return 'BRR Transition';
+            return 'v20 Era';
+        }
+
+        function getSubsidyWarning(blockHeight) {
+            if (blockHeight < 5465) return '\u26a0\ufe0f Subsidy was difficulty-based (formula: 1111/((diff+1)\u00b2), max 500 DASH). Displayed value uses nominal 5 DASH base.';
+            if (blockHeight < 17000) return '\u26a0\ufe0f Subsidy was difficulty-based (CPU era). Displayed value uses nominal 5 DASH base.';
+            if (blockHeight < 1987776) return '\u26a0\ufe0f Subsidy was difficulty-based (GPU/ASIC era, 5 DASH at high difficulty). Value shown is approximate.';
+            return '';
         }
 
         // === Helpers ===
@@ -598,9 +650,39 @@
 
                 document.getElementById('res-subsidy').textContent = formatDash(info.total) + ' DASH';
                 document.getElementById('res-period').textContent = 'Period ' + info.period;
+                document.getElementById('res-era').textContent = getEraName(height);
+
+                // Subsidy warning
+                const warning = getSubsidyWarning(height);
+                const warningEl = document.getElementById('res-warning');
+                if (warning) {
+                    warningEl.textContent = warning;
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
+
+                // Amounts
                 document.getElementById('res-miner').textContent = formatDash(info.miner);
-                document.getElementById('res-mn').textContent = formatDash(info.masternode);
-                document.getElementById('res-treasury').textContent = formatDash(info.treasury);
+                document.getElementById('res-mn').textContent = info.masternode > 0 ? formatDash(info.masternode) : 'N/A';
+                document.getElementById('res-treasury').textContent = info.treasury > 0 ? formatDash(info.treasury) : 'N/A';
+
+                // Dynamic percentages
+                const minerPct = (info.miner / info.total * 100).toFixed(1);
+                const mnPct = (info.masternode / info.total * 100).toFixed(1);
+                const treasuryPct = (info.treasury / info.total * 100).toFixed(1);
+
+                document.getElementById('res-miner-pct').textContent = minerPct + '% of total';
+                document.getElementById('res-mn-pct').textContent = info.masternode > 0 ? mnPct + '% of total' : 'Not yet activated';
+                document.getElementById('res-treasury-pct').textContent = info.treasury > 0 ? treasuryPct + '% of total' : 'Not yet activated';
+
+                // Reward bar widths
+                document.getElementById('bar-miner').style.width = minerPct + '%';
+                document.getElementById('bar-miner').textContent = minerPct + '%';
+                document.getElementById('bar-mn').style.width = (info.masternode > 0 ? mnPct : '0') + '%';
+                document.getElementById('bar-mn').textContent = info.masternode > 0 ? mnPct + '%' : '';
+                document.getElementById('bar-treasury').style.width = (info.treasury > 0 ? treasuryPct : '0') + '%';
+                document.getElementById('bar-treasury').textContent = info.treasury > 0 ? treasuryPct + '%' : '';
 
                 const date = blockToDate(height);
                 document.getElementById('res-date').textContent = date.toLocaleDateString('en-US', {
@@ -611,17 +693,6 @@
                 const rangeEnd = (info.period + 1) * HALVING_INTERVAL - 1;
                 document.getElementById('res-range').textContent =
                     formatNumber(rangeStart) + ' – ' + formatNumber(rangeEnd);
-
-                // Reward bar widths
-                const minerPct = (info.miner / info.total * 100).toFixed(1);
-                const mnPct = (info.masternode / info.total * 100).toFixed(1);
-                const treasuryPct = (info.treasury / info.total * 100).toFixed(1);
-                document.getElementById('bar-miner').style.width = minerPct + '%';
-                document.getElementById('bar-miner').textContent = minerPct + '%';
-                document.getElementById('bar-mn').style.width = mnPct + '%';
-                document.getElementById('bar-mn').textContent = mnPct + '%';
-                document.getElementById('bar-treasury').style.width = treasuryPct + '%';
-                document.getElementById('bar-treasury').textContent = treasuryPct + '%';
 
                 resultEl.classList.add('visible');
             }
