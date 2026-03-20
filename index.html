@@ -413,7 +413,7 @@
                     <p>Starting from 500,000,000 satoshis (5 DASH), for each reduction period the subsidy is reduced: <code>nSubsidy -= nSubsidy / 14</code> using integer division. This means each period retains exactly <code>13/14</code> of the previous subsidy.</p>
 
                     <h3>Reward Allocation</h3>
-                    <p>Since the v20 hard fork (block 1,987,776), the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury. This allocation evolved over time — early blocks had no masternode payments, and the treasury was introduced at block 328,009 at 10%. The calculator shows the historically accurate split for each block height.</p>
+                    <p>Since the v20 hard fork (block 1,987,776), the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury. This allocation evolved over time — early blocks had no masternode payments, and the treasury was introduced at block 328,010 at 10%. The calculator shows the historically accurate split for each block height.</p>
 
                     <h3>Masternodes</h3>
                     <p>Of the 60% masternode allocation, 62.5% is paid on the Core chain and 37.5% goes to the Platform credit pool (evonodes).</p>
@@ -492,26 +492,17 @@
 
             // Treasury (superblock budget)
             let treasury = 0;
-            const isV20 = blockHeight > 1987776;
-            if (blockHeight > 328008) {
+            const isV20 = blockHeight >= 1987776;
+            if (blockHeight > 328009) {
                 treasury = Math.trunc(nSubsidy / (isV20 ? 5 : 10));
             }
 
             const blockReward = nSubsidy - treasury;
 
-            // Masternode payment
+            // Masternode payment (matching Core's GetMasternodePayment)
             let masternode = 0;
-            if (isV20) {
-                // v20: MN = 75% of blockReward
-                masternode = Math.trunc(blockReward * 3 / 4);
-            } else if (blockHeight > 1374912) {
-                // BRR transitional: linear interpolation from 50% to 60%
-                const brrProgress = Math.min(1, (blockHeight - 1374912) / (1987776 - 1374912));
-                const mnPctOfSubsidy = 0.50 + brrProgress * 0.10;
-                masternode = Math.trunc(nSubsidy * mnPctOfSubsidy);
-                masternode = Math.min(masternode, blockReward);
-            } else if (blockHeight > 100000) {
-                // Pre-BRR masternode payments — calculated from blockReward
+            if (blockHeight > 100000) {
+                // Step schedule (always computed for blocks > 100000)
                 let ret = Math.trunc(blockReward / 5); // 20%
                 if (blockHeight > 158000) ret += Math.trunc(blockReward / 20); // 25%
                 if (blockHeight > 175280) ret += Math.trunc(blockReward / 20); // 30%
@@ -523,6 +514,24 @@
                 if (blockHeight > 278960) ret += Math.trunc(blockReward / 40); // 47.5%
                 if (blockHeight > 313520) ret += Math.trunc(blockReward / 40); // 50%
                 masternode = ret;
+
+                // BRR reallocation (Core: nReallocActivationHeight = 1374912)
+                const BRR_HEIGHT = 1374912;
+                const SUPERBLOCK_CYCLE = 16616;
+                const nReallocStart = BRR_HEIGHT - (BRR_HEIGHT % SUPERBLOCK_CYCLE) + SUPERBLOCK_CYCLE;
+
+                if (blockHeight >= nReallocStart) {
+                    if (isV20) {
+                        // v20: MN = 75% of blockReward (60% of subsidy)
+                        masternode = Math.trunc(blockReward * 3 / 4);
+                    } else {
+                        // 19 discrete steps from 51.3% to 60% (per mille of blockReward)
+                        const vecPeriods = [513, 526, 533, 540, 546, 552, 557, 562, 567, 572, 577, 582, 585, 588, 591, 594, 597, 599, 600];
+                        const nReallocCycle = SUPERBLOCK_CYCLE * 3;
+                        const nCurrentPeriod = Math.min(Math.floor((blockHeight - nReallocStart) / nReallocCycle), vecPeriods.length - 1);
+                        masternode = Math.trunc(blockReward * vecPeriods[nCurrentPeriod] / 1000);
+                    }
+                }
             }
             // else: blocks 1-100000, no masternode payments
 
@@ -533,15 +542,15 @@
 
         function getEraName(blockHeight) {
             if (blockHeight <= 100000) return 'Pre-Masternode Era';
-            if (blockHeight <= 328008) return 'Early Masternode Era (no treasury)';
+            if (blockHeight <= 328009) return 'Early Masternode Era (no treasury)';
             if (blockHeight <= 1374912) return 'Budget Era (10% treasury)';
-            if (blockHeight <= 1987776) return 'BRR Transition';
+            if (blockHeight < 1987776) return 'BRR Transition';
             return 'v20 Era';
         }
 
         function getSubsidyWarning(blockHeight) {
-            if (blockHeight < 5465) return '\u26a0\ufe0f Subsidy was difficulty-based (formula: 1111/((diff+1)\u00b2), max 500 DASH). Displayed value uses nominal 5 DASH base.';
-            if (blockHeight < 17000) return '\u26a0\ufe0f Early CPU-mining era. Actual subsidy may have deviated from 5 DASH at times.';
+            if (blockHeight <= 5465) return '\u26a0\ufe0f Subsidy was difficulty-based (formula: 1111/((diff+1)\u00b2), max 500 DASH). Displayed value uses nominal 5 DASH base.';
+            if (blockHeight <= 17000) return '\u26a0\ufe0f Early CPU-mining era. Actual subsidy may have deviated from 5 DASH at times.';
             return '';
         }
 

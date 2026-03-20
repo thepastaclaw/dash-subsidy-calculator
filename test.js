@@ -23,26 +23,17 @@ function getBlockSubsidy(blockHeight) {
 
     // Treasury (superblock budget)
     let treasury = 0;
-    const isV20 = blockHeight > 1987776;
-    if (blockHeight > 328008) {
+    const isV20 = blockHeight >= 1987776;
+    if (blockHeight > 328009) {
         treasury = Math.trunc(nSubsidy / (isV20 ? 5 : 10));
     }
 
     const blockReward = nSubsidy - treasury;
 
-    // Masternode payment
+    // Masternode payment (matching Core's GetMasternodePayment)
     let masternode = 0;
-    if (isV20) {
-        // v20: MN = 75% of blockReward
-        masternode = Math.trunc(blockReward * 3 / 4);
-    } else if (blockHeight > 1374912) {
-        // BRR transitional: linear interpolation from 50% to 60%
-        const brrProgress = Math.min(1, (blockHeight - 1374912) / (1987776 - 1374912));
-        const mnPctOfSubsidy = 0.50 + brrProgress * 0.10;
-        masternode = Math.trunc(nSubsidy * mnPctOfSubsidy);
-        masternode = Math.min(masternode, blockReward);
-    } else if (blockHeight > 100000) {
-        // Pre-BRR masternode payments — calculated from blockReward
+    if (blockHeight > 100000) {
+        // Step schedule (always computed for blocks > 100000)
         let ret = Math.trunc(blockReward / 5); // 20%
         if (blockHeight > 158000) ret += Math.trunc(blockReward / 20); // 25%
         if (blockHeight > 175280) ret += Math.trunc(blockReward / 20); // 30%
@@ -54,6 +45,24 @@ function getBlockSubsidy(blockHeight) {
         if (blockHeight > 278960) ret += Math.trunc(blockReward / 40); // 47.5%
         if (blockHeight > 313520) ret += Math.trunc(blockReward / 40); // 50%
         masternode = ret;
+
+        // BRR reallocation (Core: nReallocActivationHeight = 1374912)
+        const BRR_HEIGHT = 1374912;
+        const SUPERBLOCK_CYCLE = 16616;
+        const nReallocStart = BRR_HEIGHT - (BRR_HEIGHT % SUPERBLOCK_CYCLE) + SUPERBLOCK_CYCLE;
+
+        if (blockHeight >= nReallocStart) {
+            if (isV20) {
+                // v20: MN = 75% of blockReward (60% of subsidy)
+                masternode = Math.trunc(blockReward * 3 / 4);
+            } else {
+                // 19 discrete steps from 51.3% to 60% (per mille of blockReward)
+                const vecPeriods = [513, 526, 533, 540, 546, 552, 557, 562, 567, 572, 577, 582, 585, 588, 591, 594, 597, 599, 600];
+                const nReallocCycle = SUPERBLOCK_CYCLE * 3;
+                const nCurrentPeriod = Math.min(Math.floor((blockHeight - nReallocStart) / nReallocCycle), vecPeriods.length - 1);
+                masternode = Math.trunc(blockReward * vecPeriods[nCurrentPeriod] / 1000);
+            }
+        }
     }
     // else: blocks 1-100000, no masternode payments
 
@@ -188,12 +197,12 @@ function runTests() {
         'Block 400000: reward components sum to total'
     );
 
-    // BRR Transition: Block 1500000 — treasury=10%, MN interpolated between 50-60%
+    // BRR Transition: Block 1500000 — treasury=10%, MN via vecPeriods
+    // nReallocStart=1379128, nReallocCycle=49848, period=floor((1500000-1379128)/49848)=2, vecPeriods[2]=533
     const b1500k = getBlockSubsidy(1500000);
     assertEqual(b1500k.treasury, Math.trunc(b1500k.total / 10), 'Block 1500000: treasury = 10%');
-    const brrProgress = (1500000 - 1374912) / (1987776 - 1374912);
-    const expectedMnPct = 0.50 + brrProgress * 0.10;
-    assertEqual(b1500k.masternode, Math.trunc(b1500k.total * expectedMnPct), 'Block 1500000: MN interpolated in BRR range');
+    const br1500k = b1500k.total - b1500k.treasury;
+    assertEqual(b1500k.masternode, Math.trunc(br1500k * 533 / 1000), 'Block 1500000: MN = 53.3% of blockReward (vecPeriods[2])');
     assertEqual(
         b1500k.treasury + b1500k.masternode + b1500k.miner, b1500k.total,
         'Block 1500000: reward components sum to total'
@@ -205,11 +214,13 @@ function runTests() {
     const bBoundaryMN2 = getBlockSubsidy(100001);
     assert(bBoundaryMN2.masternode > 0, 'Block 100001: masternode payments begin');
 
-    // Era boundary: block 328008 has no treasury, 328009 has treasury
-    const bBoundaryT = getBlockSubsidy(328008);
-    assertEqual(bBoundaryT.treasury, 0, 'Block 328008: no treasury (boundary)');
-    const bBoundaryT2 = getBlockSubsidy(328009);
-    assert(bBoundaryT2.treasury > 0, 'Block 328009: treasury begins');
+    // Era boundary: block 328009 has no treasury, 328010 has treasury
+    // Core: nPrevHeight > nBudgetPaymentsStartBlock (328008), nPrevHeight = blockHeight - 1
+    const bBoundaryT = getBlockSubsidy(328009);
+    assertEqual(bBoundaryT.treasury, 0, 'Block 328009: no treasury (boundary)');
+    const bBoundaryT2 = getBlockSubsidy(328010);
+    assert(bBoundaryT2.treasury > 0, 'Block 328010: treasury begins');
+    assertEqual(bBoundaryT2.treasury, Math.trunc(bBoundaryT2.total / 10), 'Block 328010: treasury = 10%');
 
     // v20 Era: Block 2000000 — treasury=20%, MN=60% of subsidy
     const b2m = getBlockSubsidy(2000000);
@@ -312,6 +323,69 @@ function runTests() {
         totalDivergence > 1,
         `Regression: cumulative divergence over 15 periods = ${totalDivergence} sat (compounds)`
     );
+
+    // -------------------------------------------------------
+    // V20 boundary tests
+    // -------------------------------------------------------
+
+    // Block 1987776: first v20 block — treasury=20%, MN=75% of blockReward
+    const bV20 = getBlockSubsidy(1987776);
+    assertEqual(bV20.treasury, Math.trunc(bV20.total / 5), 'Block 1987776: treasury = 20% (v20 activation)');
+    const brV20 = bV20.total - bV20.treasury;
+    assertEqual(bV20.masternode, Math.trunc(brV20 * 3 / 4), 'Block 1987776: MN = 75% of blockReward (v20)');
+    assertEqual(
+        bV20.treasury + bV20.masternode + bV20.miner, bV20.total,
+        'Block 1987776: reward components sum to total'
+    );
+
+    // Block 1987775: last pre-v20 block — treasury=10%, MN via vecPeriods
+    const bPreV20 = getBlockSubsidy(1987775);
+    assertEqual(bPreV20.treasury, Math.trunc(bPreV20.total / 10), 'Block 1987775: treasury = 10% (pre-v20)');
+    assert(bPreV20.treasury !== Math.trunc(bPreV20.total / 5), 'Block 1987775: treasury is NOT 20%');
+
+    // -------------------------------------------------------
+    // BRR gap tests (between BRRHeight and nReallocStart)
+    // -------------------------------------------------------
+
+    // nReallocStart = 1374912 - (1374912 % 16616) + 16616 = 1379128
+    // Blocks in [1374912, 1379127] use the step schedule (50% for blocks > 313520)
+    const bBRRGap = getBlockSubsidy(1375000);
+    const brBRRGap = bBRRGap.total - bBRRGap.treasury;
+    let mnBRRGap = Math.trunc(brBRRGap / 5);
+    mnBRRGap += Math.trunc(brBRRGap / 20);
+    mnBRRGap += Math.trunc(brBRRGap / 20);
+    mnBRRGap += Math.trunc(brBRRGap / 20);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    mnBRRGap += Math.trunc(brBRRGap / 40);
+    assertEqual(bBRRGap.masternode, mnBRRGap, 'Block 1375000: BRR gap uses step schedule (50%)');
+
+    // -------------------------------------------------------
+    // vecPeriods step tests
+    // -------------------------------------------------------
+
+    // nReallocStart = 1379128, nReallocCycle = 49848
+    // Period 0: blocks [1379128, 1428975], vecPeriods[0] = 513
+    const bVec0 = getBlockSubsidy(1379128);
+    const brVec0 = bVec0.total - bVec0.treasury;
+    assertEqual(bVec0.masternode, Math.trunc(brVec0 * 513 / 1000), 'Block 1379128: vecPeriods[0] = 51.3%');
+
+    // Period 1: blocks [1428976, 1478823], vecPeriods[1] = 526
+    const bVec1 = getBlockSubsidy(1428976);
+    const brVec1 = bVec1.total - bVec1.treasury;
+    assertEqual(bVec1.masternode, Math.trunc(brVec1 * 526 / 1000), 'Block 1428976: vecPeriods[1] = 52.6%');
+
+    // Period 18 (last): vecPeriods[18] = 600 (60%)
+    // First block of period 18: 1379128 + 18 * 49848 = 1379128 + 897264 = 2276392
+    // But this is past v20 (1987776), so v20 takes over. Test the last pre-v20 vecPeriods block instead.
+    // Period at block 1987775: floor((1987775 - 1379128) / 49848) = floor(608647/49848) = 12
+    // vecPeriods[12] = 585
+    const bVecLast = getBlockSubsidy(1987775);
+    const brVecLast = bVecLast.total - bVecLast.treasury;
+    assertEqual(bVecLast.masternode, Math.trunc(brVecLast * 585 / 1000), 'Block 1987775: vecPeriods[12] = 58.5% (last pre-v20)');
 }
 
 // === Run and report ===
