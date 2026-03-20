@@ -501,7 +501,7 @@
 
             // Masternode payment
             let masternode = 0;
-            if (blockHeight > 1987776) {
+            if (isV20) {
                 // v20: MN = 75% of blockReward
                 masternode = Math.trunc(blockReward * 3 / 4);
             } else if (blockHeight > 1374912) {
@@ -662,27 +662,31 @@
                     warningEl.style.display = 'none';
                 }
 
-                // Amounts
-                document.getElementById('res-miner').textContent = formatDash(info.miner);
-                document.getElementById('res-mn').textContent = info.masternode > 0 ? formatDash(info.masternode) : 'N/A';
-                document.getElementById('res-treasury').textContent = info.treasury > 0 ? formatDash(info.treasury) : 'N/A';
-
                 // Dynamic percentages
                 const minerPct = (info.miner / info.total * 100).toFixed(1);
                 const mnPct = (info.masternode / info.total * 100).toFixed(1);
                 const treasuryPct = (info.treasury / info.total * 100).toFixed(1);
+                const hasMN = info.masternode > 0;
+                const hasTreasury = info.treasury > 0;
 
+                // Amounts and percentage labels
+                document.getElementById('res-miner').textContent = formatDash(info.miner);
                 document.getElementById('res-miner-pct').textContent = minerPct + '% of total';
-                document.getElementById('res-mn-pct').textContent = info.masternode > 0 ? mnPct + '% of total' : 'Not yet activated';
-                document.getElementById('res-treasury-pct').textContent = info.treasury > 0 ? treasuryPct + '% of total' : 'Not yet activated';
+                document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
+                document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
+                document.getElementById('res-treasury').textContent = hasTreasury ? formatDash(info.treasury) : 'N/A';
+                document.getElementById('res-treasury-pct').textContent = hasTreasury ? treasuryPct + '% of total' : 'Not yet activated';
 
                 // Reward bar widths
-                document.getElementById('bar-miner').style.width = minerPct + '%';
-                document.getElementById('bar-miner').textContent = minerPct + '%';
-                document.getElementById('bar-mn').style.width = (info.masternode > 0 ? mnPct : '0') + '%';
-                document.getElementById('bar-mn').textContent = info.masternode > 0 ? mnPct + '%' : '';
-                document.getElementById('bar-treasury').style.width = (info.treasury > 0 ? treasuryPct : '0') + '%';
-                document.getElementById('bar-treasury').textContent = info.treasury > 0 ? treasuryPct + '%' : '';
+                const barMiner = document.getElementById('bar-miner');
+                const barMN = document.getElementById('bar-mn');
+                const barTreasury = document.getElementById('bar-treasury');
+                barMiner.style.width = minerPct + '%';
+                barMiner.textContent = minerPct + '%';
+                barMN.style.width = (hasMN ? mnPct : '0') + '%';
+                barMN.textContent = hasMN ? mnPct + '%' : '';
+                barTreasury.style.width = (hasTreasury ? treasuryPct : '0') + '%';
+                barTreasury.textContent = hasTreasury ? treasuryPct + '%' : '';
 
                 const date = blockToDate(height);
                 document.getElementById('res-date').textContent = date.toLocaleDateString('en-US', {

@@ -32,7 +32,7 @@ function getBlockSubsidy(blockHeight) {
 
     // Masternode payment
     let masternode = 0;
-    if (blockHeight > 1987776) {
+    if (isV20) {
         // v20: MN = 75% of blockReward
         masternode = Math.trunc(blockReward * 3 / 4);
     } else if (blockHeight > 1374912) {
