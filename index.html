@@ -541,8 +541,7 @@
 
         function getSubsidyWarning(blockHeight) {
             if (blockHeight < 5465) return '\u26a0\ufe0f Subsidy was difficulty-based (formula: 1111/((diff+1)\u00b2), max 500 DASH). Displayed value uses nominal 5 DASH base.';
-            if (blockHeight < 17000) return '\u26a0\ufe0f Subsidy was difficulty-based (CPU era). Displayed value uses nominal 5 DASH base.';
-            if (blockHeight < 1987776) return '\u26a0\ufe0f Subsidy was difficulty-based (GPU/ASIC era, 5 DASH at high difficulty). Value shown is approximate.';
+            if (blockHeight < 17000) return '\u26a0\ufe0f Early CPU-mining era. Actual subsidy may have deviated from 5 DASH at times.';
             return '';
         }
 
