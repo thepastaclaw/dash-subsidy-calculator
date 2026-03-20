@@ -310,7 +310,7 @@
         @media (max-width: 768px) {
             .container { padding: 0 1rem; }
             .grid { grid-template-columns: 1fr; }
-            .chart-container { height: 300px; max-width: 100%; }
+            .chart-container { height: 300px; }
 
             /* Header */
             header h1 { font-size: 1.15rem; }
@@ -320,10 +320,7 @@
             .calc-input {
                 flex-wrap: wrap;
             }
-            .calc-input input {
-                width: 100%;
-                min-height: 44px;
-            }
+            .calc-input input,
             .calc-input .btn {
                 width: 100%;
                 min-height: 44px;
@@ -353,9 +350,6 @@
             /* Hide satoshi and period emission columns (5th and 6th) */
             th:nth-child(5), td:nth-child(5),
             th:nth-child(6), td:nth-child(6) { display: none; }
-
-            /* Footer */
-            footer { font-size: 0.75rem; }
         }
 
         /* Very narrow screens */
