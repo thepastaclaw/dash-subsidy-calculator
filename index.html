@@ -308,11 +308,61 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            .container { padding: 0 1rem; }
             .grid { grid-template-columns: 1fr; }
-            .reward-breakdown { grid-template-columns: 1fr; }
-            .chart-container { height: 300px; }
-            header h1 { font-size: 1.25rem; }
+            .chart-container { height: 300px; max-width: 100%; }
+
+            /* Header */
+            header h1 { font-size: 1.15rem; }
+            header p { font-size: 0.8rem; }
+
+            /* Calc input: stack vertically */
+            .calc-input {
+                flex-wrap: wrap;
+            }
+            .calc-input input {
+                width: 100%;
+                min-height: 44px;
+            }
+            .calc-input .btn {
+                width: 100%;
+                min-height: 44px;
+            }
+
+            /* Info grid: 2 columns on mobile */
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            /* Result header: stack vertically */
+            .result-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
             .result-header .subsidy { font-size: 1.35rem; }
+
+            /* Reward bar: smaller text */
+            .reward-bar div { font-size: 0.55rem; }
+
+            /* Reward breakdown: single column */
+            .reward-breakdown { grid-template-columns: 1fr; }
+
+            /* Table: reduce padding, smaller font, hide less-important columns */
+            th { padding: 0.4rem 0.5rem; font-size: 0.65rem; }
+            td { padding: 0.35rem 0.5rem; font-size: 0.7rem; }
+            /* Hide satoshi and period emission columns (5th and 6th) */
+            th:nth-child(5), td:nth-child(5),
+            th:nth-child(6), td:nth-child(6) { display: none; }
+
+            /* Footer */
+            footer { font-size: 0.75rem; }
+        }
+
+        /* Very narrow screens */
+        @media (max-width: 400px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .info-item .value { font-size: 1.05rem; }
+            header h1 { font-size: 1rem; }
         }
     </style>
 </head>
