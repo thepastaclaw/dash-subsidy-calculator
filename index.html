@@ -592,10 +592,14 @@
 
             const miner = blockReward - masternode;
 
-            // Platform credit pool split (v20+): 37.5% of MN reward to Platform, 62.5% to Core MN
+            // Platform credit pool split requires both v20 AND MN_RR activation
+            // v20: block 1,987,776 — MN_RR: block 2,128,896 (mainnet)
+            const MN_RR_HEIGHT = 2128896;
+            const isMNRR = blockHeight >= MN_RR_HEIGHT;
             let mnCore = masternode;
             let platform = 0;
-            if (isV20 && masternode > 0) {
+            if (isV20 && isMNRR && masternode > 0) {
+                // PlatformShare: reward * 375 / 1000 (matches Core's PlatformShare())
                 platform = Math.trunc(masternode * 375 / 1000);
                 mnCore = masternode - platform;
             }
@@ -608,7 +612,8 @@
             if (blockHeight <= 328009) return 'Early Masternode Era (no treasury)';
             if (blockHeight <= 1374912) return 'Budget Era (10% treasury)';
             if (blockHeight < 1987776) return 'BRR Transition';
-            return 'v20 Era';
+            if (blockHeight < 2128896) return 'v20 Era';
+            return 'v20 + MN_RR Era';
         }
 
         function getSubsidyWarning(blockHeight) {
