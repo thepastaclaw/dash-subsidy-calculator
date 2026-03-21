@@ -187,6 +187,7 @@
         }
         .bar-miner { background: var(--green); }
         .bar-masternode { background: var(--accent); }
+        .bar-platform { background: #6366f1; }
         .bar-treasury { background: var(--yellow); color: #000 !important; }
 
         .reward-breakdown {
@@ -420,7 +421,8 @@
                     <div id="res-warning" style="font-size:0.8rem;color:var(--yellow);margin-bottom:0.75rem;display:none"></div>
                     <div class="reward-bar" id="res-bar">
                         <div class="bar-miner" id="bar-miner">20%</div>
-                        <div class="bar-masternode" id="bar-mn">60%</div>
+                        <div class="bar-masternode" id="bar-mn">37.5%</div>
+                        <div class="bar-platform" id="bar-platform" style="display:none">22.5%</div>
                         <div class="bar-treasury" id="bar-treasury">20%</div>
                     </div>
                     <div class="reward-breakdown">
@@ -430,9 +432,14 @@
                             <div class="pct" id="res-miner-pct">20% of total</div>
                         </div>
                         <div class="reward-item">
-                            <div class="label">Masternodes</div>
+                            <div class="label" id="res-mn-label">Masternodes</div>
                             <div class="amount" id="res-mn" style="color:var(--accent)"></div>
                             <div class="pct" id="res-mn-pct">60% of total</div>
+                        </div>
+                        <div class="reward-item" id="res-platform-item" style="display:none">
+                            <div class="label">Platform (Credit Pool)</div>
+                            <div class="amount" id="res-platform" style="color:#6366f1"></div>
+                            <div class="pct" id="res-platform-pct"></div>
                         </div>
                         <div class="reward-item">
                             <div class="label">Treasury</div>
@@ -585,7 +592,15 @@
 
             const miner = blockReward - masternode;
 
-            return { total: nSubsidy, treasury, masternode, miner, period };
+            // Platform credit pool split (v20+): 37.5% of MN reward to Platform, 62.5% to Core MN
+            let mnCore = masternode;
+            let platform = 0;
+            if (isV20 && masternode > 0) {
+                platform = Math.trunc(masternode * 375 / 1000);
+                mnCore = masternode - platform;
+            }
+
+            return { total: nSubsidy, treasury, masternode, mnCore, platform, miner, period };
         }
 
         function getEraName(blockHeight) {
@@ -724,23 +739,49 @@
                 const treasuryPct = (info.treasury / info.total * 100).toFixed(1);
                 const hasMN = info.masternode > 0;
                 const hasTreasury = info.treasury > 0;
+                const hasPlatform = info.platform > 0;
+                const mnCorePct = hasPlatform ? (info.mnCore / info.total * 100).toFixed(1) : mnPct;
+                const platformPct = hasPlatform ? (info.platform / info.total * 100).toFixed(1) : '0';
 
                 // Amounts and percentage labels
                 document.getElementById('res-miner').textContent = formatDash(info.miner);
                 document.getElementById('res-miner-pct').textContent = minerPct + '% of total';
-                document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
-                document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
+
+                if (hasPlatform) {
+                    document.getElementById('res-mn-label').textContent = 'Masternodes (Core)';
+                    document.getElementById('res-mn').textContent = formatDash(info.mnCore);
+                    document.getElementById('res-mn-pct').textContent = mnCorePct + '% of total';
+                    document.getElementById('res-platform-item').style.display = '';
+                    document.getElementById('res-platform').textContent = formatDash(info.platform);
+                    document.getElementById('res-platform-pct').textContent = platformPct + '% of total';
+                } else {
+                    document.getElementById('res-mn-label').textContent = 'Masternodes';
+                    document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
+                    document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
+                    document.getElementById('res-platform-item').style.display = 'none';
+                }
+
                 document.getElementById('res-treasury').textContent = hasTreasury ? formatDash(info.treasury) : 'N/A';
                 document.getElementById('res-treasury-pct').textContent = hasTreasury ? treasuryPct + '% of total' : 'Not yet activated';
 
                 // Reward bar widths
                 const barMiner = document.getElementById('bar-miner');
                 const barMN = document.getElementById('bar-mn');
+                const barPlatform = document.getElementById('bar-platform');
                 const barTreasury = document.getElementById('bar-treasury');
                 barMiner.style.width = minerPct + '%';
                 barMiner.textContent = minerPct + '%';
-                barMN.style.width = (hasMN ? mnPct : '0') + '%';
-                barMN.textContent = hasMN ? mnPct + '%' : '';
+                if (hasPlatform) {
+                    barMN.style.width = mnCorePct + '%';
+                    barMN.textContent = mnCorePct + '%';
+                    barPlatform.style.display = '';
+                    barPlatform.style.width = platformPct + '%';
+                    barPlatform.textContent = platformPct + '%';
+                } else {
+                    barMN.style.width = (hasMN ? mnPct : '0') + '%';
+                    barMN.textContent = hasMN ? mnPct + '%' : '';
+                    barPlatform.style.display = 'none';
+                }
                 barTreasury.style.width = (hasTreasury ? treasuryPct : '0') + '%';
                 barTreasury.textContent = hasTreasury ? treasuryPct + '%' : '';
 
