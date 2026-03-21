@@ -438,17 +438,21 @@
                             <div class="pct" id="res-miner-pct">20% of total</div>
                         </div>
                         <div class="reward-item" id="res-mn-card">
-                            <div class="label" id="res-mn-label">Masternodes</div>
+                            <div class="label">Masternodes</div>
                             <div class="amount" id="res-mn" style="color:var(--accent)"></div>
                             <div class="pct" id="res-mn-pct">60% of total</div>
-                            <div id="res-platform-sub" style="display:none; border-top:1px solid var(--card-border); margin-top:0.5rem; padding-top:0.5rem;">
-                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.15rem;">
-                                    <span style="color:var(--accent);">Core</span>
-                                    <span id="res-mn-core-val" style="color:var(--accent);"></span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
-                                    <span style="color:#6366f1;">Platform</span>
-                                    <span id="res-platform-val" style="color:#6366f1;"></span>
+                            <div id="res-mn-subcards" style="display:none; display:none; margin-top:0.5rem;">
+                                <div style="display:flex; gap:2px; border-radius:6px; overflow:hidden;">
+                                    <div id="res-subcard-core" style="background:var(--accent); padding:0.5rem; text-align:center; color:#fff; font-size:0.75rem;">
+                                        <div style="font-weight:600;">Core</div>
+                                        <div id="res-subcard-core-amt" style="font-size:0.85rem; margin:0.15rem 0;"></div>
+                                        <div id="res-subcard-core-pct" style="opacity:0.85;"></div>
+                                    </div>
+                                    <div id="res-subcard-platform" style="background:#6366f1; padding:0.5rem; text-align:center; color:#fff; font-size:0.75rem;">
+                                        <div style="font-weight:600;">Platform</div>
+                                        <div id="res-subcard-platform-amt" style="font-size:0.85rem; margin:0.15rem 0;"></div>
+                                        <div id="res-subcard-platform-pct" style="opacity:0.85;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -763,17 +767,22 @@
                 document.getElementById('res-miner').textContent = formatDash(info.miner);
                 document.getElementById('res-miner-pct').textContent = minerPct + '% of total';
 
-                document.getElementById('res-mn-label').textContent = 'Masternodes';
                 document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
                 document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
 
-                const platformSub = document.getElementById('res-platform-sub');
+                const mnSubcards = document.getElementById('res-mn-subcards');
                 if (hasPlatform) {
-                    platformSub.style.display = '';
-                    document.getElementById('res-mn-core-val').textContent = formatDash(info.mnCore) + ' (' + mnCorePct + '%)';
-                    document.getElementById('res-platform-val').textContent = formatDash(info.platform) + ' (' + platformPct + '%)';
+                    mnSubcards.style.display = '';
+                    const coreWidthPct = (info.mnCore / info.masternode * 100).toFixed(1);
+                    const platWidthPct = (info.platform / info.masternode * 100).toFixed(1);
+                    document.getElementById('res-subcard-core').style.width = coreWidthPct + '%';
+                    document.getElementById('res-subcard-core-amt').textContent = formatDash(info.mnCore);
+                    document.getElementById('res-subcard-core-pct').textContent = mnCorePct + '% of total';
+                    document.getElementById('res-subcard-platform').style.width = platWidthPct + '%';
+                    document.getElementById('res-subcard-platform-amt').textContent = formatDash(info.platform);
+                    document.getElementById('res-subcard-platform-pct').textContent = platformPct + '% of total';
                 } else {
-                    platformSub.style.display = 'none';
+                    mnSubcards.style.display = 'none';
                 }
 
                 document.getElementById('res-treasury').textContent = hasTreasury ? formatDash(info.treasury) : 'N/A';
