@@ -186,12 +186,7 @@
             transition: width 0.3s;
         }
         .bar-miner { background: var(--green); }
-        .bar-mn-wrap {
-            display: flex;
-            overflow: hidden;
-        }
         .bar-masternode { background: var(--accent); }
-        .bar-platform { background: #6366f1; border-left: 2px solid rgba(255,255,255,0.4); }
         .bar-treasury { background: var(--yellow); color: #000 !important; }
 
         .reward-breakdown {
@@ -425,10 +420,7 @@
                     <div id="res-warning" style="font-size:0.8rem;color:var(--yellow);margin-bottom:0.75rem;display:none"></div>
                     <div class="reward-bar" id="res-bar">
                         <div class="bar-miner" id="bar-miner">20%</div>
-                        <div class="bar-mn-wrap" id="bar-mn-wrap">
-                            <div class="bar-masternode" id="bar-mn">60%</div>
-                            <div class="bar-platform" id="bar-platform" style="display:none"></div>
-                        </div>
+                        <div class="bar-masternode" id="bar-mn">60%</div>
                         <div class="bar-treasury" id="bar-treasury">20%</div>
                     </div>
                     <div class="reward-breakdown" id="reward-breakdown">
@@ -790,28 +782,12 @@
 
                 // Reward bar widths
                 const barMiner = document.getElementById('bar-miner');
-                const barMNWrap = document.getElementById('bar-mn-wrap');
                 const barMN = document.getElementById('bar-mn');
-                const barPlatform = document.getElementById('bar-platform');
                 const barTreasury = document.getElementById('bar-treasury');
                 barMiner.style.width = minerPct + '%';
                 barMiner.textContent = minerPct + '%';
-                // MN wrapper gets the full MN width; inner bars split proportionally
-                barMNWrap.style.width = (hasMN ? mnPct : '0') + '%';
-                if (hasPlatform) {
-                    // Internal split: core vs platform as % of total MN
-                    const coreShare = (info.mnCore / info.masternode * 100).toFixed(1);
-                    const platShare = (info.platform / info.masternode * 100).toFixed(1);
-                    barMN.style.width = coreShare + '%';
-                    barMN.textContent = mnCorePct + '%';
-                    barPlatform.style.display = '';
-                    barPlatform.style.width = platShare + '%';
-                    barPlatform.textContent = platformPct + '%';
-                } else {
-                    barMN.style.width = '100%';
-                    barMN.textContent = hasMN ? mnPct + '%' : '';
-                    barPlatform.style.display = 'none';
-                }
+                barMN.style.width = (hasMN ? mnPct : '0') + '%';
+                barMN.textContent = hasMN ? mnPct + '%' : '';
                 barTreasury.style.width = (hasTreasury ? treasuryPct : '0') + '%';
                 barTreasury.textContent = hasTreasury ? treasuryPct + '%' : '';
 
