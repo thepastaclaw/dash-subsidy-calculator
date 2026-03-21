@@ -431,21 +431,26 @@
                         </div>
                         <div class="bar-treasury" id="bar-treasury">20%</div>
                     </div>
-                    <div class="reward-breakdown">
+                    <div class="reward-breakdown" id="reward-breakdown">
                         <div class="reward-item">
                             <div class="label">Miners</div>
                             <div class="amount" id="res-miner" style="color:var(--green)"></div>
                             <div class="pct" id="res-miner-pct">20% of total</div>
                         </div>
-                        <div class="reward-item">
+                        <div class="reward-item" id="res-mn-card">
                             <div class="label" id="res-mn-label">Masternodes</div>
                             <div class="amount" id="res-mn" style="color:var(--accent)"></div>
                             <div class="pct" id="res-mn-pct">60% of total</div>
-                        </div>
-                        <div class="reward-item" id="res-platform-item" style="display:none">
-                            <div class="label">Platform (Credit Pool)</div>
-                            <div class="amount" id="res-platform" style="color:#6366f1"></div>
-                            <div class="pct" id="res-platform-pct"></div>
+                            <div id="res-platform-sub" style="display:none; border-top:1px solid var(--card-border); margin-top:0.5rem; padding-top:0.5rem;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.15rem;">
+                                    <span style="color:var(--accent);">Core</span>
+                                    <span id="res-mn-core-val" style="color:var(--accent);"></span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                                    <span style="color:#6366f1;">Platform</span>
+                                    <span id="res-platform-val" style="color:#6366f1;"></span>
+                                </div>
+                            </div>
                         </div>
                         <div class="reward-item">
                             <div class="label">Treasury</div>
@@ -758,18 +763,17 @@
                 document.getElementById('res-miner').textContent = formatDash(info.miner);
                 document.getElementById('res-miner-pct').textContent = minerPct + '% of total';
 
+                document.getElementById('res-mn-label').textContent = 'Masternodes';
+                document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
+                document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
+
+                const platformSub = document.getElementById('res-platform-sub');
                 if (hasPlatform) {
-                    document.getElementById('res-mn-label').textContent = 'Masternodes (Core)';
-                    document.getElementById('res-mn').textContent = formatDash(info.mnCore);
-                    document.getElementById('res-mn-pct').textContent = mnCorePct + '% of total';
-                    document.getElementById('res-platform-item').style.display = '';
-                    document.getElementById('res-platform').textContent = formatDash(info.platform);
-                    document.getElementById('res-platform-pct').textContent = platformPct + '% of total';
+                    platformSub.style.display = '';
+                    document.getElementById('res-mn-core-val').textContent = formatDash(info.mnCore) + ' (' + mnCorePct + '%)';
+                    document.getElementById('res-platform-val').textContent = formatDash(info.platform) + ' (' + platformPct + '%)';
                 } else {
-                    document.getElementById('res-mn-label').textContent = 'Masternodes';
-                    document.getElementById('res-mn').textContent = hasMN ? formatDash(info.masternode) : 'N/A';
-                    document.getElementById('res-mn-pct').textContent = hasMN ? mnPct + '% of total' : 'Not yet activated';
-                    document.getElementById('res-platform-item').style.display = 'none';
+                    platformSub.style.display = 'none';
                 }
 
                 document.getElementById('res-treasury').textContent = hasTreasury ? formatDash(info.treasury) : 'N/A';
