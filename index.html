@@ -395,10 +395,11 @@
                         <div class="value" id="net-next">—</div>
                     </div>
                     <div class="info-item">
-                        <label>Est. Circulating Supply</label>
+                        <label>Est. Max Supply*</label>
                         <div class="value" id="net-supply">—</div>
                     </div>
                 </div>
+                <p style="font-size:0.85em; color:var(--muted); margin-top:1em;">*Assumes all treasury budget is allocated each cycle. Actual circulating supply is lower because unused governance funds are never created.</p>
             </section>
 
             <!-- Calculator -->
@@ -459,6 +460,9 @@
                     <h3>Reward Allocation</h3>
                     <p>Since the v20 hard fork (block 1,987,776), the block reward is split: <strong>20%</strong> to miners, <strong>60%</strong> to masternodes, and <strong>20%</strong> to the treasury. This allocation evolved over time — early blocks had no masternode payments, and the treasury was introduced at block 328,010 at 10%. The calculator shows the historically accurate split for each block height.</p>
 
+                    <h3>Treasury &amp; Actual Supply</h3>
+                    <p>The treasury allocation (currently 20%) represents the <em>maximum possible</em> governance budget per superblock cycle. In practice, only proposals that pass a governance vote are funded — unused budget is never created. This means the actual circulating supply is lower than the theoretical maximum shown here.</p>
+
                     <h3>Masternodes</h3>
                     <p>Of the 60% masternode allocation, 62.5% is paid on the Core chain and 37.5% goes to the Platform credit pool (evonodes).</p>
                 </div>
@@ -485,7 +489,7 @@
                                 <th>Subsidy (DASH)</th>
                                 <th>Subsidy (sat)</th>
                                 <th>Period Emission</th>
-                                <th>Cumulative Supply</th>
+                                <th>Cumulative Max Supply*</th>
                             </tr>
                         </thead>
                         <tbody id="schedule-body"></tbody>
@@ -819,7 +823,7 @@
                             pointHitRadius: 8,
                         },
                         {
-                            label: 'Cumulative Supply (DASH)',
+                            label: 'Cumulative Max Supply (DASH)',
                             data: cumulativeData,
                             borderColor: '#34d399',
                             backgroundColor: 'rgba(52, 211, 153, 0.08)',
