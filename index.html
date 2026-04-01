@@ -896,11 +896,11 @@
         function renderChart(schedule) {
             const ctx = document.getElementById('emission-chart').getContext('2d');
 
-            // Skip period 0 (difficulty-dependent, not predictable) — start chart at period 1
-            const chartData = schedule.slice(1, 101);
+            // Include all periods but null-out subsidy for period 0 (difficulty-dependent, variable)
+            const chartData = schedule.slice(0, 100);
 
             const labels = chartData.map(p => p.startDate.getFullYear());
-            const subsidyData = chartData.map(p => p.subsidy / COIN);
+            const subsidyData = chartData.map(p => p.period === 0 ? null : p.subsidy / COIN);
             const cumulativeData = chartData.map(p => Math.round(p.cumulative / COIN));
 
             new Chart(ctx, {
@@ -916,6 +916,7 @@
                             borderWidth: 2,
                             fill: true,
                             stepped: 'before',
+                            spanGaps: false,
                             yAxisID: 'y',
                             pointRadius: 0,
                             pointHitRadius: 8,
