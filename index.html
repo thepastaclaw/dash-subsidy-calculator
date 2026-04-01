@@ -547,6 +547,8 @@
         const HALVING_INTERVAL = 210240;
         const GENESIS_TIMESTAMP = 1390095618; // Jan 18, 2014 19:40:18 CST (Jan 19, 2014 01:40:18 UTC)
         const AVG_BLOCK_SECONDS = 156; // 2.6 minutes
+        // Actual period 0 emission from scanning mainnet coinbase outputs (see scripts/scan-early-subsidies.py)
+        const PERIOD0_ACTUAL_EMISSION = 507841856201413; // 5,078,418.56201413 DASH in satoshis
 
         // === Core Math (integer arithmetic matching Dash Core) ===
         function getSubsidyForPeriod(period) {
@@ -677,9 +679,9 @@
                 const startBlock = period === 0 ? 1 : period * HALVING_INTERVAL;
                 const endBlock = (period + 1) * HALVING_INTERVAL - 1;
 
-                // For period 0, genesis block (0) is special; count blocks 1 through 210239
+                // For period 0, use actual scanned emission (difficulty-dependent era)
                 const blocksInPeriod = period === 0 ? HALVING_INTERVAL - 1 : HALVING_INTERVAL;
-                const periodEmission = blocksInPeriod * subsidy;
+                const periodEmission = period === 0 ? PERIOD0_ACTUAL_EMISSION : blocksInPeriod * subsidy;
                 cumulative += periodEmission;
 
                 periods.push({
@@ -837,10 +839,11 @@
 
             // Sub-period definitions for period 0 (early difficulty-dependent eras)
             // nPrevHeight = blockHeight - 1, so nPrevHeight < 5465 → blocks 1-5465
+            // Emission values from scanning actual mainnet coinbase outputs (see scripts/scan-early-subsidies.py)
             const earlySubPeriods = [
-                { label: '0a', start: 1, end: 5465, range: '1 \u2013 500', formula: '1111/((diff+1)\u00b2)' },
-                { label: '0b', start: 5466, end: 17000, range: '25 \u2013 500', formula: '11111/(((diff+51)/6)\u00b2)' },
-                { label: '0c', start: 17001, end: 210239, range: '5 \u2013 25', formula: '2222222/(((diff+2600)/9)\u00b2)' },
+                { label: '0a', start: 1, end: 5465, range: '1 \u2013 500', cumDash: 2032573, cumSats: 203257337199999 },
+                { label: '0b', start: 5466, end: 17000, range: '25 \u2013 500', cumDash: 3267667, cumSats: 326766664912227 },
+                { label: '0c', start: 17001, end: 210239, range: '5 \u2013 25', cumDash: 5078419, cumSats: 507841856201413 },
             ];
 
             const fragment = document.createDocumentFragment();
@@ -852,16 +855,16 @@
                         const tr = document.createElement('tr');
                         tr.className = 'sub-period';
                         const isLast = si === earlySubPeriods.length - 1;
+                        const prevCum = si > 0 ? earlySubPeriods[si - 1].cumSats : 0;
+                        const eraEmission = sp.cumSats - prevCum;
                         tr.innerHTML =
                             '<td>' + sp.label + '</td>' +
                             '<td>' + formatNumber(sp.start) + ' \u2013 ' + formatNumber(sp.end) + '</td>' +
                             '<td>' + formatDate(blockToDate(sp.start)) + ' \u2013 ' + formatDate(blockToDate(sp.end)) + '</td>' +
                             '<td>' + sp.range + '</td>' +
                             '<td>varies</td>' +
-                            '<td>varies</td>' +
-                            (isLast
-                                ? '<td>~' + formatNumber(Math.round(p.cumulative / COIN)) + ' DASH</td>'
-                                : '<td>\u2014</td>');
+                            '<td>' + formatNumber(Math.round(eraEmission / COIN)) + ' DASH</td>' +
+                            '<td>' + formatNumber(sp.cumDash) + ' DASH</td>';
                         fragment.appendChild(tr);
                     }
                     continue;

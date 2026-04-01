@@ -1,0 +1,20 @@
+{
+  "5465": {
+    "description": "End of era 0a (1111/((diff+1)^2), range 1-500 DASH)",
+    "block_subsidy_dash": 21.001,
+    "cumulative_dash": 2032573.37199999,
+    "elapsed_minutes": 0.7
+  },
+  "17000": {
+    "description": "End of era 0b (11111/(((diff+51)/6)^2), range 25-500 DASH)",
+    "block_subsidy_dash": 59.004,
+    "cumulative_dash": 3267666.64912227,
+    "elapsed_minutes": 2.1
+  },
+  "210239": {
+    "description": "End of era 0c / period 0 (2222222/(((diff+2600)/9)^2), range 5-25 DASH)",
+    "block_subsidy_dash": 5.0,
+    "cumulative_dash": 5078418.56201413,
+    "elapsed_minutes": 28.5
+  }
+}
