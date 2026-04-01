@@ -873,14 +873,20 @@
                 const tr = document.createElement('tr');
                 if (p.period === currentPeriod) tr.className = 'current-period';
 
+                // Periods 1-9 still used difficulty-dependent formula (settled to 5 DASH on mainnet)
+                // Mark emission/cumulative as approximate until v20 hardcoded the base
+                const V20_PERIOD = Math.floor((1987776 - 1) / HALVING_INTERVAL); // period 9
+                const isEstimated = p.period >= 1 && p.period <= V20_PERIOD;
+                const approx = isEstimated ? '~' : '';
+
                 tr.innerHTML =
                     '<td>' + p.period + '</td>' +
                     '<td>' + formatNumber(p.startBlock) + ' \u2013 ' + formatNumber(p.endBlock) + '</td>' +
                     '<td>' + formatDate(p.startDate) + ' \u2013 ' + formatDate(p.endDate) + '</td>' +
                     '<td>' + formatDash(p.subsidy) + '</td>' +
                     '<td>' + formatNumber(p.subsidy) + '</td>' +
-                    '<td>' + formatNumber(Math.round(p.periodEmission / COIN)) + ' DASH</td>' +
-                    '<td>' + formatNumber(Math.round(p.cumulative / COIN)) + ' DASH</td>';
+                    '<td>' + approx + formatNumber(Math.round(p.periodEmission / COIN)) + ' DASH</td>' +
+                    '<td>' + approx + formatNumber(Math.round(p.cumulative / COIN)) + ' DASH</td>';
                 fragment.appendChild(tr);
             }
             tbody.appendChild(fragment);
@@ -890,8 +896,8 @@
         function renderChart(schedule) {
             const ctx = document.getElementById('emission-chart').getContext('2d');
 
-            // Use up to ~100 periods for chart data
-            const chartData = schedule.slice(0, 100);
+            // Skip period 0 (difficulty-dependent, not predictable) — start chart at period 1
+            const chartData = schedule.slice(1, 101);
 
             const labels = chartData.map(p => p.startDate.getFullYear());
             const subsidyData = chartData.map(p => p.subsidy / COIN);
